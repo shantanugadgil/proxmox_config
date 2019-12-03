@@ -1,0 +1,193 @@
+#!/bin/bash
+
+set -u
+
+http_path='https://raw.githubusercontent.com/shantanugadgil/proxmox_config/master/files'
+
+salt_minion ()
+{
+    # FIXME: make this per distro
+    #wget -O - https://repo.saltstack.com/apt/debian/8/amd64/latest/SALTSTACK-GPG-KEY.pub | apt-key add -
+    #echo 'deb http://repo.saltstack.com/apt/debian/8/amd64/latest jessie main' > /etc/apt/sources.list.d/saltstack.list
+    #export DEBIAN_FRONTEND=noninteractive
+    #apt-get update
+    #apt-get install -y salt-minion
+    #systemctl restart salt-minion
+    return 0
+}
+
+rc_files ()
+{
+    wget ${http_path}/vimrc -O /root/.vimrc
+    mkdir -p /root/.vim/colors
+    wget ${http_path}/jellybeans.vim -O /root/.vim/colors/jellybeans.vim
+    wget ${http_path}/xoria256.vim -O /root/.vim/colors/xoria256.vim
+
+    wget ${http_path}/screenrc -O /root/.screenrc
+
+    wget ${http_path}/bashrc -O /root/.bashrc
+
+    return 0
+}
+
+snmpd_config ()
+{
+    cp -fv /etc/snmp/snmpd.conf /etc/snmp/snmpd.conf.orig.${now}
+
+    cat > /etc/snmp/snmpd.conf <<EOF
+rocommunity public
+syslocation Pune
+syscontact Shantanu Gadgil <shantanu.gadgil@gmail.com>
+extend .1.3.6.1.4.1.2021.7890.1 distro /usr/bin/distro
+EOF
+
+    wget ${http_path}/distro -O /usr/bin/distro
+    chmod +x /usr/bin/distro
+
+    systemctl reenable snmpd
+    systemctl enable snmpd
+    systemctl restart snmpd
+
+    return 0
+}
+
+haproxy_config ()
+{
+    mv -fv /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.$now
+    wget ${http_path}/haproxy.cfg -O /etc/haproxy/haproxy.cfg
+
+    systemctl reenable haproxy
+    systemctl restart haproxy
+
+    return 0
+}
+
+consul_agent ()
+{
+#    systemctl disable consul
+#    systemctl stop consul
+#
+#    wget http://${http_server}/lcloud/incoming/consul -O /usr/sbin/consul
+#    chmod +x /usr/sbin/consul
+#
+#    wget ${http_path}/consul.service -O /etc/systemd/system/consul.service
+#
+#    mkdir -p /etc/consul/
+#    wget ${http_path}/00-pve-client.json -O /etc/consul/00-client.json
+#    sed -i "s/@@PVE_NAME@@/${pve_name}/g" /etc/consul/00-client.json
+#
+#    systemctl --system daemon-reload
+#    systemctl reenable consul
+#    systemctl restart consul
+#    sleep 3
+#
+    return 0
+}
+
+nomad_agent ()
+{
+#    systemctl disable nomad
+#    systemctl stop nomad
+#
+#    wget http://${http_server}/lcloud/incoming/nomad -O /usr/sbin/nomad
+#    chmod +x /usr/sbin/nomad
+#
+#    wget ${http_path}/nomad.service -O /etc/systemd/system/nomad.service
+#
+#    mkdir -p /etc/nomad/
+#    wget ${http_path}/00-pve-client.hcl -O /etc/nomad/00-client.hcl
+#    sed -i "s/@@PVE_NAME@@/${pve_name}/g" /etc/nomad/00-client.hcl
+#
+#    systemctl --system daemon-reload
+#    systemctl reenable nomad
+#    systemctl restart nomad
+#    sleep 3
+#
+    return 0
+}
+
+update_motd ()
+{
+    local h=$(hostname)
+    local d=$(date)
+
+    cat >> /etc/motd <<-EOF
+============================================================
+$h: Proxmox Virtual Environment
+============================================================
+
+$d
+- Machine is born
+
+============================================================
+Contact: shantanu.gadgil@gmail.com
+============================================================
+EOF
+
+    return 0
+}
+
+main ()
+{
+    export DEBIAN_FRONTEND=noninteractive
+    export TERM=xterm
+    apt-get update && apt-get -y dist-upgrade
+    apt-get install -q -y vim screen tmux jq dhcpdump arping parted tree ncdu haproxy wget curl pigz ethtool snmpd unzip
+    pveam update
+    apt-get autoremove -y
+    apt-get autoclean -y
+
+    ### 
+    update_motd
+
+    rc_files
+
+    haproxy_config
+    #snmpd_config
+    #consul_agent
+    #nomad_agent
+    #salt_minion
+    sync
+}
+
+### script begins here ###
+
+ver=$(pveversion | cut -d/ -f2)
+addr=$(ip -o -4 addr list vmbr0 | head -n1 | awk '{print $4}' | cut -d/ -f1)
+haddr=$(echo $addr | tr '.' '-')
+pve_name="pve-${haddr}"
+
+echo "PVE Version [$ver]"
+echo "PVE Name [$pve_name]"
+
+echo "Waiting for some time, press CTRL+C to abort ..."
+sleep 10
+
+now=$(date +"%F-%H-%M-%S")
+
+case $ver in
+    4*)
+    	sed 's/^deb/#deb/g' -i /etc/apt/sources.list.d/pve-enterprise.list
+    	echo 'deb http://download.proxmox.com/debian jessie pve-no-subscription' > /etc/apt/sources.list.d/pve-no-subscription.list
+    ;;
+
+    5*)
+    	sed 's/^deb/#deb/g' -i /etc/apt/sources.list.d/pve-enterprise.list
+	echo 'deb http://download.proxmox.com/debian stretch pve-no-subscription' > /etc/apt/sources.list.d/pve-no-subscription.list
+    ;;
+
+    6*)
+    	sed 's/^deb/#deb/g' -i /etc/apt/sources.list.d/pve-enterprise.list
+    	echo 'deb http://download.proxmox.com/debian buster pve-no-subscription' > /etc/apt/sources.list.d/pve-no-subscription.list
+    ;;
+
+
+    *)
+    	echo "Unsupported PVE version [$ver]"
+    	exit 1
+    	;;
+esac
+
+main $@
+
+exit 0
