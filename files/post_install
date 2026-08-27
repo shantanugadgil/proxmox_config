@@ -165,29 +165,6 @@ sleep 10
 
 now=$(date +"%F-%H-%M-%S")
 
-case $ver in
-    4*)
-    	sed 's/^deb/#deb/g' -i /etc/apt/sources.list.d/pve-enterprise.list
-    	echo 'deb http://download.proxmox.com/debian jessie pve-no-subscription' > /etc/apt/sources.list.d/pve-no-subscription.list
-    ;;
-
-    5*)
-    	sed 's/^deb/#deb/g' -i /etc/apt/sources.list.d/pve-enterprise.list
-	echo 'deb http://download.proxmox.com/debian stretch pve-no-subscription' > /etc/apt/sources.list.d/pve-no-subscription.list
-    ;;
-
-    6*)
-    	sed 's/^deb/#deb/g' -i /etc/apt/sources.list.d/pve-enterprise.list
-    	echo 'deb http://download.proxmox.com/debian buster pve-no-subscription' > /etc/apt/sources.list.d/pve-no-subscription.list
-    ;;
-
-
-    *)
-    	echo "Unsupported PVE version [$ver]"
-    	exit 1
-    	;;
-esac
-
 main $@
 
 exit 0
