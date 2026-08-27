@@ -138,7 +138,7 @@ main ()
     apt-get autoclean -y
 
     ### 
-    update_motd
+    #update_motd
 
     rc_files
 
