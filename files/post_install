@@ -4,18 +4,6 @@ set -u
 
 http_path='https://raw.githubusercontent.com/shantanugadgil/proxmox_config/master/files'
 
-salt_minion ()
-{
-    # FIXME: make this per distro
-    #wget -O - https://repo.saltstack.com/apt/debian/8/amd64/latest/SALTSTACK-GPG-KEY.pub | apt-key add -
-    #echo 'deb http://repo.saltstack.com/apt/debian/8/amd64/latest jessie main' > /etc/apt/sources.list.d/saltstack.list
-    #export DEBIAN_FRONTEND=noninteractive
-    #apt-get update
-    #apt-get install -y salt-minion
-    #systemctl restart salt-minion
-    return 0
-}
-
 rc_files ()
 {
     wget ${http_path}/vimrc -O /root/.vimrc
@@ -62,83 +50,90 @@ haproxy_config ()
     return 0
 }
 
-consul_agent ()
-{
-#    systemctl disable consul
-#    systemctl stop consul
-#
-#    wget http://${http_server}/lcloud/incoming/consul -O /usr/sbin/consul
-#    chmod +x /usr/sbin/consul
-#
-#    wget ${http_path}/consul.service -O /etc/systemd/system/consul.service
-#
-#    mkdir -p /etc/consul/
-#    wget ${http_path}/00-pve-client.json -O /etc/consul/00-client.json
-#    sed -i "s/@@PVE_NAME@@/${pve_name}/g" /etc/consul/00-client.json
-#
-#    systemctl --system daemon-reload
-#    systemctl reenable consul
-#    systemctl restart consul
-#    sleep 3
-#
-    return 0
-}
+# consul_agent ()
+# {
+#     systemctl disable consul
+#     systemctl stop consul
 
-nomad_agent ()
-{
-#    systemctl disable nomad
-#    systemctl stop nomad
-#
-#    wget http://${http_server}/lcloud/incoming/nomad -O /usr/sbin/nomad
-#    chmod +x /usr/sbin/nomad
-#
-#    wget ${http_path}/nomad.service -O /etc/systemd/system/nomad.service
-#
-#    mkdir -p /etc/nomad/
-#    wget ${http_path}/00-pve-client.hcl -O /etc/nomad/00-client.hcl
-#    sed -i "s/@@PVE_NAME@@/${pve_name}/g" /etc/nomad/00-client.hcl
-#
-#    systemctl --system daemon-reload
-#    systemctl reenable nomad
-#    systemctl restart nomad
-#    sleep 3
-#
-    return 0
-}
+#     wget http://${http_server}/lcloud/incoming/consul -O /usr/sbin/consul
+#     chmod +x /usr/sbin/consul
 
-update_motd ()
-{
-    local h=$(hostname)
-    local d=$(date)
+#     wget ${http_path}/consul.service -O /etc/systemd/system/consul.service
 
-    cat >> /etc/motd <<-EOF
-============================================================
-$h: Proxmox Virtual Environment
-============================================================
+#     mkdir -p /etc/consul/
+#     wget ${http_path}/00-pve-client.json -O /etc/consul/00-client.json
+#     sed -i "s/@@PVE_NAME@@/${pve_name}/g" /etc/consul/00-client.json
 
-$d
-- Machine is born
+#     systemctl --system daemon-reload
+#     systemctl reenable consul
+#     systemctl restart consul
+#     sleep 3
 
-============================================================
-Contact: shantanu.gadgil@gmail.com
-============================================================
-EOF
+#     return 0
+# }
 
-    return 0
-}
+# nomad_agent ()
+# {
+#     systemctl disable nomad
+#     systemctl stop nomad
+
+#     wget http://${http_server}/lcloud/incoming/nomad -O /usr/sbin/nomad
+#     chmod +x /usr/sbin/nomad
+
+#     wget ${http_path}/nomad.service -O /etc/systemd/system/nomad.service
+
+#     mkdir -p /etc/nomad/
+#     wget ${http_path}/00-pve-client.hcl -O /etc/nomad/00-client.hcl
+#     sed -i "s/@@PVE_NAME@@/${pve_name}/g" /etc/nomad/00-client.hcl
+
+#     systemctl --system daemon-reload
+#     systemctl reenable nomad
+#     systemctl restart nomad
+#     sleep 3
+
+#     return 0
+# }
+
+# update_motd ()
+# {
+#     local h=$(hostname)
+#     local d=$(date)
+
+#     cat >> /etc/motd <<-EOF
+# ============================================================
+# $h: Proxmox Virtual Environment
+# ============================================================
+
+# $d
+# - Machine is born
+
+# ============================================================
+# Contact: shantanu.gadgil@gmail.com
+# ============================================================
+# EOF
+
+#     return 0
+# }
 
 main ()
 {
+    rm -fv /etc/apt/sources.list.d/ceph.sources /etc/apt/sources.list.d/pve-enterprise.sources
+
+    cat > /etc/apt/sources.list.d/proxmox.sources << 'EOF'
+Types: deb
+URIs: http://download.proxmox.com/debian/pve
+Suites: trixie
+Components: pve-no-subscription
+Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
+EOF
+
     export DEBIAN_FRONTEND=noninteractive
     export TERM=xterm
     apt-get update && apt-get -y dist-upgrade
-    apt-get install -q -y vim screen tmux jq dhcpdump arping parted tree ncdu haproxy wget curl pigz ethtool snmpd unzip
+    apt-get install -q -y vim screen tmux jq dhcpdump arping parted tree ncdu haproxy wget curl pigz ethtool snmpd unzip needrestart
     pveam update
     apt-get autoremove -y
     apt-get autoclean -y
-
-    ### 
-    #update_motd
 
     rc_files
 
@@ -147,6 +142,21 @@ main ()
     #consul_agent
     #nomad_agent
     #salt_minion
+
+    read -p "DELETE '/dev/pve/data' (y/n): " answer
+
+    case ${answer} in
+        'y'|'Y'|'[yY][eE][sS]')
+            lvchange -an /dev/pve/data
+            lvremove /dev/pve/data
+            lvresize -l +100%FREE -r /dev/pve/root
+        ;;
+
+        *)
+            echo "not deleting '/dev/pve/data'"
+        ;;
+    esac
+
     sync
 }
 
