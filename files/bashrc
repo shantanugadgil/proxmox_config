@@ -20,3 +20,13 @@ export EDITOR=vim
 
 #PS1='[\u@\H][\w]\n\$ '
 export PS1='[\[\033[00;31m\]\u\[\033[00;33m\]@\[\033[00;34m\]\H\[\033[00m\]][\[\033[00;32m\]\w\[\033[00m\]]\n\$ '
+
+export HISTTIMEFORMAT="%Y-%m-%d %H:%M:%S "
+export HISTFILESIZE=16384
+export HISTSIZE=16384
+export HISTCONTROL='ignoreboth'
+export HISTIGNORE='ll:ls:cd:z'
+
+# custom aliases
+alias ssg='screen -rdx -S shantanu || screen -DDR -S shantanu'
+alias do_update='apt-get update && apt-get dist-upgrade -y'

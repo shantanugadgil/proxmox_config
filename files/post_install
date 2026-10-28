@@ -94,26 +94,7 @@ haproxy_config ()
 #     return 0
 # }
 
-# update_motd ()
-# {
-#     local h=$(hostname)
-#     local d=$(date)
 
-#     cat >> /etc/motd <<-EOF
-# ============================================================
-# $h: Proxmox Virtual Environment
-# ============================================================
-
-# $d
-# - Machine is born
-
-# ============================================================
-# Contact: shantanu.gadgil@gmail.com
-# ============================================================
-# EOF
-
-#     return 0
-# }
 
 main ()
 {
@@ -130,7 +111,7 @@ EOF
     export DEBIAN_FRONTEND=noninteractive
     export TERM=xterm
     apt-get update && apt-get -y dist-upgrade
-    apt-get install -q -y vim screen tmux jq dhcpdump arping parted tree ncdu haproxy wget curl pigz ethtool snmpd unzip needrestart
+    apt-get install -q -y vim screen tmux jq dhcpdump arping parted tree ncdu haproxy wget curl pigz ethtool snmpd unzip needrestart dhcping
     pveam update
     apt-get autoremove -y
     apt-get autoclean -y
@@ -138,10 +119,6 @@ EOF
     rc_files
 
     haproxy_config
-    #snmpd_config
-    #consul_agent
-    #nomad_agent
-    #salt_minion
 
     read -p "DELETE '/dev/pve/data' (y/n): " answer
 
